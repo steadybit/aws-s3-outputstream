@@ -26,7 +26,7 @@ jobs:
           passphrase: ${{ secrets.MAVEN_GPG_PRIVATE_KEY_PASSWORD }}
 
       - name: Bump version without tagging
-        if: github.ref == 'refs/heads/trunk'
+        if: github.ref == 'refs/heads/build'
         id: git_tag_dry_run
         uses: anothrNick/github-tag-action@v1
         env:
@@ -35,14 +35,14 @@ jobs:
           DRY_RUN: true
 
       - name: "mvn deploy -Prelease"
-        if: github.ref == 'refs/heads/trunk'
+        if: github.ref == 'refs/heads/build'
         #Workaround: -Dmaven.resolver.transport=wagon for failed deployments https://github.com/community/community/discussions/49001
         run: mvn -Drevision=${{steps.git_tag_dry_run.outputs.new_tag}} -Dgpg.passphrase=${{ secrets.MAVEN_GPG_PRIVATE_KEY_PASSWORD }} deploy -B -U -Prelease -Dmaven.resolver.transport=wagon
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Bump version again and push git tag
-        if: github.ref == 'refs/heads/trunk'
+        if: github.ref == 'refs/heads/build'
         id: git_tag
         uses: anothrNick/github-tag-action@v1
         env:
