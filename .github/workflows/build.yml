@@ -1,0 +1,50 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - "**"
+
+jobs:
+  build:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: 11
+          cache: maven
+
+      - name: Import GPG key
+        id: import_gpg
+        uses: crazy-max/ghaction-import-gpg@v6
+        with:
+          gpg_private_key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.MAVEN_GPG_PRIVATE_KEY_PASSWORD }}
+
+      - name: Bump version without tagging
+        if: github.ref == 'refs/heads/trunk'
+        id: git_tag_dry_run
+        uses: anothrNick/github-tag-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEFAULT_BUMP: "patch"
+          DRY_RUN: true
+
+      - name: "mvn deploy -Prelease"
+        if: github.ref == 'refs/heads/trunk'
+        #Workaround: -Dmaven.resolver.transport=wagon for failed deployments https://github.com/community/community/discussions/49001
+        run: mvn -Drevision=${{steps.git_tag_dry_run.outputs.new_tag}} -Dgpg.passphrase=${{ secrets.MAVEN_GPG_PRIVATE_KEY_PASSWORD }} deploy -B -U -Prelease -Dmaven.resolver.transport=wagon
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Bump version again and push git tag
+        if: github.ref == 'refs/heads/trunk'
+        id: git_tag
+        uses: anothrNick/github-tag-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEFAULT_BUMP: "patch"
